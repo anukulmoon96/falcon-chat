@@ -1,0 +1,36 @@
+# Local stack: MongoDB, MySQL with a demo project database, and Falcon on http://localhost:4000
+services:
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes: [mongo-data:/data/db]
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: falcon-root
+    ports: ["3306:3306"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pfalcon-root"]
+      interval: 5s
+      retries: 30
+
+  falcon:
+    build: .
+    env_file: server/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MYSQL_HOST: mysql
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      WEB_PORTAL_URL: ${WEB_PORTAL_URL:-http://localhost:4000}
+    ports: ["4000:4000"]
+    depends_on:
+      mongo: { condition: service_started }
+      mysql: { condition: service_healthy }
+
+volumes:
+  mongo-data:
+  mysql-data:
